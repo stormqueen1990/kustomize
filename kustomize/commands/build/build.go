@@ -78,28 +78,8 @@ func NewCmdBuild(
 			if err := Validate(args); err != nil {
 				return err
 			}
-			k := krusty.MakeKustomizer(
-				HonorKustomizeFlags(krusty.MakeDefaultOptions(), cmd.Flags()),
-			)
-			m, err := k.Run(fSys, theArgs.kustomizationPath)
-			if err != nil {
-				return err
-			}
-			if theFlags.outputPath != "" && fSys.IsDir(theFlags.outputPath) {
-				// Ignore writer; write to o.outputPath directly.
-				return MakeWriter(fSys).WriteIndividualFiles(
-					theFlags.outputPath, m)
-			}
-			yml, err := m.AsYaml()
-			if err != nil {
-				return err
-			}
-			if theFlags.outputPath != "" {
-				// Ignore writer; write to o.outputPath directly.
-				return fSys.WriteFile(theFlags.outputPath, yml)
-			}
-			_, err = writer.Write(yml)
-			return err
+			options := HonorKustomizeFlags(krusty.MakeDefaultOptions(), cmd.Flags())
+			return RunBuild(options, fSys, writer)
 		},
 	}
 
@@ -128,6 +108,30 @@ func NewCmdBuild(
 
 	AddFlagEnableHelm(cmd.Flags())
 	return cmd
+}
+
+// RunBuild executes the core of the build command to generate files based on Kustomize configuration.
+func RunBuild(options *krusty.Options, fSys filesys.FileSystem, writer io.Writer) error {
+	k := krusty.MakeKustomizer(options)
+	m, err := k.Run(fSys, theArgs.kustomizationPath)
+	if err != nil {
+		return err
+	}
+	if theFlags.outputPath != "" && fSys.IsDir(theFlags.outputPath) {
+		// Ignore writer; write to o.outputPath directly.
+		return MakeWriter(fSys).WriteIndividualFiles(
+			theFlags.outputPath, m)
+	}
+	yml, err := m.AsYaml()
+	if err != nil {
+		return err
+	}
+	if theFlags.outputPath != "" {
+		// Ignore writer; write to o.outputPath directly.
+		return fSys.WriteFile(theFlags.outputPath, yml)
+	}
+	_, err = writer.Write(yml)
+	return err
 }
 
 // Validate validates build command args and flags.
